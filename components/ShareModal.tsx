@@ -6,7 +6,6 @@ import {
   X, 
   FileText, 
   Link2, 
-  QrCode, 
   Download, 
   Copy, 
   Check,
@@ -48,12 +47,6 @@ export default function ShareModal({ visible, onClose, onExport, userName }: Sha
       icon: FileText,
       title: 'PDF Document',
       description: 'Download your portfolio as a PDF file',
-    },
-    {
-      format: 'qr_code',
-      icon: QrCode,
-      title: 'QR Code',
-      description: 'Generate a QR code for easy sharing',
     },
   ];
 

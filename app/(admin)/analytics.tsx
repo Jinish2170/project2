@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { 
@@ -27,20 +27,37 @@ export default function AdminAnalytics() {
   const [monthlyTrend, setMonthlyTrend] = useState<MonthlyTrend[]>([]);
   const [departmentData, setDepartmentData] = useState<DepartmentData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [trendLoading, setTrendLoading] = useState(false);
+  const [deptLoading, setDeptLoading] = useState(false);
 
-  // Fetch analytics data
+  // Calculate months based on period
+  const getMonthsForPeriod = (period: string): number => {
+    switch (period) {
+      case 'week': return 1;
+      case 'month': return 3;
+      case 'semester': return 6;
+      case 'year': return 12;
+      default: return 6;
+    }
+  };
+
+  // Fetch analytics data when period changes
   useEffect(() => {
     const fetchAnalytics = async () => {
-      setLoading(true);
+      setTrendLoading(true);
+      setDeptLoading(true);
       try {
+        const months = getMonthsForPeriod(selectedPeriod);
+        
         // Fetch activity trends
-        const trends = await getActivityTrends(6);
+        const trends = await getActivityTrends(months);
         const formattedTrends = trends.map(t => ({
           month: t.month,
           activities: t.count,
           approvals: t.count, // All fetched are approved
         }));
         setMonthlyTrend(formattedTrends);
+        setTrendLoading(false);
 
         // Fetch department stats
         const deptStats = await getDepartmentStats();
@@ -51,14 +68,17 @@ export default function AdminAnalytics() {
           avg: d.students > 0 ? parseFloat((d.activities / d.students).toFixed(1)) : 0,
         }));
         setDepartmentData(formattedDepts);
+        setDeptLoading(false);
       } catch (error) {
         console.error('Error fetching analytics:', error);
+        setTrendLoading(false);
+        setDeptLoading(false);
       }
       setLoading(false);
     };
     
     fetchAnalytics();
-  }, []);
+  }, [selectedPeriod]);
 
   const maxActivities = Math.max(...monthlyTrend.map(d => d.activities), 1);
 
@@ -187,23 +207,34 @@ export default function AdminAnalytics() {
             <Calendar size={20} color={COLORS.textMuted} />
           </View>
           
-          <View style={styles.barChart}>
-            {monthlyTrend.map((item, index) => (
-              <View key={index} style={styles.barItem}>
-                <View style={styles.barContainer}>
-                  <LinearGradient
-                    colors={GRADIENTS.primary}
-                    style={[
-                      styles.bar,
-                      { height: `${(item.activities / maxActivities) * 100}%` }
-                    ]}
-                  />
+          {trendLoading ? (
+            <View style={styles.chartLoading}>
+              <ActivityIndicator size="large" color={COLORS.primary} />
+              <Text style={styles.chartLoadingText}>Loading trends...</Text>
+            </View>
+          ) : monthlyTrend.length === 0 ? (
+            <View style={styles.chartEmpty}>
+              <Text style={styles.chartEmptyText}>No activity data available</Text>
+            </View>
+          ) : (
+            <View style={styles.barChart}>
+              {monthlyTrend.map((item, index) => (
+                <View key={index} style={styles.barItem}>
+                  <View style={styles.barContainer}>
+                    <LinearGradient
+                      colors={GRADIENTS.primary}
+                      style={[
+                        styles.bar,
+                        { height: `${(item.activities / maxActivities) * 100}%` }
+                      ]}
+                    />
+                  </View>
+                  <Text style={styles.barValue}>{item.activities}</Text>
+                  <Text style={styles.barLabel}>{item.month}</Text>
                 </View>
-                <Text style={styles.barValue}>{item.activities}</Text>
-                <Text style={styles.barLabel}>{item.month}</Text>
-              </View>
-            ))}
-          </View>
+              ))}
+            </View>
+          )}
         </View>
 
         {/* Category Distribution */}
@@ -252,32 +283,43 @@ export default function AdminAnalytics() {
             </View>
           </View>
 
-          <View style={styles.departmentList}>
-            {departmentData.map((dept, index) => (
-              <View key={index} style={styles.departmentItem}>
-                <View style={styles.departmentHeader}>
-                  <Text style={styles.departmentName}>{dept.name}</Text>
-                  <Text style={styles.departmentAvg}>Avg: {dept.avg} pts/student</Text>
+          {deptLoading ? (
+            <View style={styles.chartLoading}>
+              <ActivityIndicator size="large" color={COLORS.secondary} />
+              <Text style={styles.chartLoadingText}>Loading departments...</Text>
+            </View>
+          ) : departmentData.length === 0 ? (
+            <View style={styles.chartEmpty}>
+              <Text style={styles.chartEmptyText}>No department data available</Text>
+            </View>
+          ) : (
+            <View style={styles.departmentList}>
+              {departmentData.map((dept, index) => (
+                <View key={index} style={styles.departmentItem}>
+                  <View style={styles.departmentHeader}>
+                    <Text style={styles.departmentName}>{dept.name}</Text>
+                    <Text style={styles.departmentAvg}>Avg: {dept.avg} pts/student</Text>
+                  </View>
+                  <View style={styles.departmentBarContainer}>
+                    <LinearGradient
+                      colors={GRADIENTS.secondary}
+                      style={[
+                        styles.departmentBar,
+                        { width: `${(dept.activities / maxDeptActivities) * 100}%` }
+                      ]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                    />
+                  </View>
+                  <View style={styles.departmentStats}>
+                    <Text style={styles.departmentStat}>{dept.activities} activities</Text>
+                    <Text style={styles.departmentStat}>•</Text>
+                    <Text style={styles.departmentStat}>{dept.students} students</Text>
+                  </View>
                 </View>
-                <View style={styles.departmentBarContainer}>
-                  <LinearGradient
-                    colors={GRADIENTS.secondary}
-                    style={[
-                      styles.departmentBar,
-                      { width: `${(dept.activities / maxDeptActivities) * 100}%` }
-                    ]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                  />
-                </View>
-                <View style={styles.departmentStats}>
-                  <Text style={styles.departmentStat}>{dept.activities} activities</Text>
-                  <Text style={styles.departmentStat}>•</Text>
-                  <Text style={styles.departmentStat}>{dept.students} students</Text>
-                </View>
-              </View>
-            ))}
-          </View>
+              ))}
+            </View>
+          )}
         </View>
 
         <View style={styles.bottomPadding} />
@@ -529,6 +571,25 @@ const styles = StyleSheet.create({
   },
   departmentStat: {
     fontSize: 12,
+    color: COLORS.textMuted,
+  },
+  chartLoading: {
+    padding: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  chartLoadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: COLORS.textMuted,
+  },
+  chartEmpty: {
+    padding: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  chartEmptyText: {
+    fontSize: 14,
     color: COLORS.textMuted,
   },
   bottomPadding: {

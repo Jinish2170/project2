@@ -128,18 +128,6 @@ export default function FacultyProfile() {
           </View>
         </View>
 
-        {/* Settings */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Settings</Text>
-          <View style={styles.menuList}>
-            <TouchableOpacity style={styles.menuItem}>
-              <BookOpen size={20} color={COLORS.textMuted} />
-              <Text style={styles.menuText}>Review Settings</Text>
-              <ChevronRight size={20} color={COLORS.textMuted} />
-            </TouchableOpacity>
-          </View>
-        </View>
-
         {/* Logout */}
         <View style={styles.section}>
           <TouchableOpacity 

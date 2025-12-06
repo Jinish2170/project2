@@ -244,7 +244,10 @@ export default function AdminDashboard() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
           <View style={styles.actionsRow}>
-            <TouchableOpacity style={styles.actionButton}>
+            <TouchableOpacity 
+              style={styles.actionButton}
+              onPress={() => router.push('/(admin)/users')}
+            >
               <LinearGradient
                 colors={['#7C3AED', '#8B5CF6']}
                 style={styles.actionGradient}
@@ -256,7 +259,10 @@ export default function AdminDashboard() {
               </LinearGradient>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.actionButton}>
+            <TouchableOpacity 
+              style={styles.actionButton}
+              onPress={() => router.push('/(admin)/analytics')}
+            >
               <View style={styles.actionSecondary}>
                 <Activity size={20} color={COLORS.primary} />
                 <Text style={styles.actionSecondaryText}>View Reports</Text>

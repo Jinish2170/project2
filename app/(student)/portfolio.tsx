@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity, Alert, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Award, Star, Trophy, BookOpen, Share2, CheckCircle, FileText, ExternalLink } from 'lucide-react-native';
@@ -10,6 +10,8 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import EmptyState from '@/components/EmptyState';
 import ShareModal from '@/components/ShareModal';
 import { VerificationStamp } from '@/components/VerificationBadge';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
 
 export default function StudentPortfolio() {
   const { 
@@ -54,18 +56,370 @@ export default function StudentPortfolio() {
     setRefreshing(false);
   };
 
+  // Format date for display
+  const formatDate = (dateString: string): string => {
+    return new Date(dateString).toLocaleDateString('en-IN', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+  };
+
+  // Format category name
+  const formatCategory = (category: string): string => {
+    return category
+      .split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  };
+
+  // Generate PDF HTML with actual data
+  const generatePortfolioPDF = (): string => {
+    const activitiesRows = approvedActivities
+      .map((activity, index) => `
+        <tr>
+          <td>${index + 1}</td>
+          <td>${activity.title}</td>
+          <td>${formatCategory(activity.category)}</td>
+          <td>${formatDate(activity.activity_date)}</td>
+          <td>${activity.points}</td>
+        </tr>
+      `)
+      .join('');
+
+    const skillsList = skills
+      .map(skill => `
+        <div class="skill-item">
+          <span class="skill-name">${skill.name}</span>
+          <div class="skill-bar">
+            <div class="skill-progress" style="width: ${skill.proficiency}%"></div>
+          </div>
+          <span class="skill-percent">${skill.proficiency}%</span>
+        </div>
+      `)
+      .join('');
+
+    const achievementsList = achievements
+      .map(achievement => `
+        <div class="achievement-item">
+          <strong>${achievement.title}</strong>
+          ${achievement.description ? `<p>${achievement.description}</p>` : ''}
+          <small>${formatDate(achievement.date_earned)}</small>
+        </div>
+      `)
+      .join('');
+
+    const categoryBreakdownHTML = Object.entries(activitySummary)
+      .filter(([_, count]) => count > 0)
+      .map(([category, count]) => `
+        <div class="category-item">
+          <span>${formatCategory(category)}</span>
+          <span class="category-count">${count}</span>
+        </div>
+      `)
+      .join('');
+
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Student Portfolio - ${user?.full_name || 'Student'}</title>
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            padding: 40px;
+            max-width: 800px;
+            margin: 0 auto;
+            background: #fff;
+          }
+          .header {
+            text-align: center;
+            padding-bottom: 30px;
+            border-bottom: 3px solid #2563EB;
+            margin-bottom: 30px;
+          }
+          .header h1 {
+            color: #2563EB;
+            font-size: 28px;
+            margin-bottom: 10px;
+          }
+          .header p { color: #666; font-size: 14px; }
+          .profile-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f8fafc;
+            border-radius: 8px;
+          }
+          .profile-info h2 {
+            font-size: 24px;
+            color: #1e293b;
+            margin-bottom: 12px;
+          }
+          .profile-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+          }
+          .profile-info p {
+            color: #64748b;
+            font-size: 14px;
+          }
+          .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 30px;
+          }
+          .stat-card {
+            background: linear-gradient(135deg, #2563EB 0%, #4338CA 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+          }
+          .stat-card .value {
+            font-size: 32px;
+            font-weight: bold;
+          }
+          .stat-card .label {
+            font-size: 12px;
+            opacity: 0.9;
+          }
+          .section {
+            margin-bottom: 30px;
+          }
+          .section h3 {
+            font-size: 18px;
+            color: #2563EB;
+            margin-bottom: 15px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #e2e8f0;
+          }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+          }
+          th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+          }
+          th {
+            background: #f1f5f9;
+            font-weight: 600;
+            color: #475569;
+          }
+          .skill-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 12px;
+          }
+          .skill-name {
+            width: 150px;
+            font-weight: 500;
+          }
+          .skill-bar {
+            flex: 1;
+            height: 8px;
+            background: #e2e8f0;
+            border-radius: 4px;
+            margin: 0 15px;
+          }
+          .skill-progress {
+            height: 100%;
+            background: linear-gradient(90deg, #2563EB, #4338CA);
+            border-radius: 4px;
+          }
+          .skill-percent {
+            width: 50px;
+            text-align: right;
+            font-weight: 500;
+            color: #2563EB;
+          }
+          .achievement-item {
+            padding: 15px;
+            background: #f8fafc;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border-left: 4px solid #2563EB;
+          }
+          .achievement-item p {
+            color: #64748b;
+            font-size: 13px;
+            margin: 5px 0;
+          }
+          .achievement-item small { color: #94a3b8; }
+          .category-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px;
+            border-bottom: 1px solid #e2e8f0;
+          }
+          .category-count {
+            font-weight: 600;
+            color: #2563EB;
+          }
+          .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #e2e8f0;
+            text-align: center;
+            color: #94a3b8;
+            font-size: 12px;
+          }
+          .verified-badge {
+            display: inline-block;
+            background: #22c55e;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            margin-top: 10px;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>📚 Student Activity Portfolio</h1>
+          <p>Generated on ${formatDate(new Date().toISOString())}</p>
+          <span class="verified-badge">✓ Verified by Institution</span>
+        </div>
+
+        <div class="profile-section">
+          <div class="profile-info">
+            <h2>${user?.full_name || 'Student Name'}</h2>
+            <div class="profile-grid">
+              <p><strong>Email:</strong> ${user?.email || 'N/A'}</p>
+              <p><strong>Department:</strong> ${user?.department || 'N/A'}</p>
+              <p><strong>Enrollment:</strong> ${user?.enrollment_number || 'N/A'}</p>
+              <p><strong>Semester:</strong> ${user?.semester || 'N/A'}</p>
+              <p><strong>CGPA:</strong> ${user?.cgpa?.toFixed(2) || 'N/A'}</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="value">${studentStats?.total_activities || approvedActivities.length}</div>
+            <div class="label">Total Activities</div>
+          </div>
+          <div class="stat-card">
+            <div class="value">${studentStats?.total_points || 0}</div>
+            <div class="label">Total Points</div>
+          </div>
+          <div class="stat-card">
+            <div class="value">${studentStats?.certificates_count || 0}</div>
+            <div class="label">Certificates</div>
+          </div>
+        </div>
+
+        ${approvedActivities.length > 0 ? `
+        <div class="section">
+          <h3>📋 Verified Activities (${approvedActivities.length})</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Title</th>
+                <th>Category</th>
+                <th>Date</th>
+                <th>Points</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${activitiesRows}
+            </tbody>
+          </table>
+        </div>
+        ` : ''}
+
+        ${skills.length > 0 ? `
+        <div class="section">
+          <h3>💡 Skills & Competencies</h3>
+          ${skillsList}
+        </div>
+        ` : ''}
+
+        ${achievements.length > 0 ? `
+        <div class="section">
+          <h3>🏆 Achievements</h3>
+          ${achievementsList}
+        </div>
+        ` : ''}
+
+        ${Object.keys(activitySummary).length > 0 ? `
+        <div class="section">
+          <h3>📊 Category Breakdown</h3>
+          ${categoryBreakdownHTML}
+        </div>
+        ` : ''}
+
+        <div class="footer">
+          <p>This portfolio is verified and authenticated by the Student Activity Portal</p>
+          <p>Document ID: ${user?.id?.slice(0, 8) || 'N/A'}-${Date.now()}</p>
+        </div>
+      </body>
+      </html>
+    `;
+  };
+
   const handleExportPortfolio = async (options: PortfolioExportOptions) => {
-    // TODO: Implement with Supabase Edge Functions
-    // This will generate PDF or create shareable link
-    Alert.alert(
-      'Coming Soon',
-      'Portfolio export will be available once the backend is connected.',
-      [{ text: 'OK' }]
-    );
-    return { 
-      success: false, 
-      error: 'Backend not connected. Portfolio export will be available soon.' 
-    };
+    if (!user?.id) {
+      return { success: false, error: 'User not logged in' };
+    }
+
+    try {
+      if (options.format === 'pdf') {
+        const html = generatePortfolioPDF();
+        
+        // For web platform, open in new window and trigger print
+        if (Platform.OS === 'web') {
+          const printWindow = window.open('', '_blank');
+          if (printWindow) {
+            printWindow.document.write(html);
+            printWindow.document.close();
+            printWindow.focus();
+            // Wait for content to load then print
+            setTimeout(() => {
+              printWindow.print();
+            }, 500);
+          } else {
+            // Fallback to expo-print if popup blocked
+            await Print.printAsync({ html });
+          }
+          return { success: true };
+        }
+        
+        // For native platforms, generate file and share
+        const { uri } = await Print.printToFileAsync({ html });
+        
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(uri, {
+            mimeType: 'application/pdf',
+            dialogTitle: 'Save Portfolio PDF',
+          });
+        }
+        
+        return { success: true };
+      } else if (options.format === 'web_link') {
+        Alert.alert(
+          'Coming Soon',
+          'Shareable web links will be available in a future update.',
+          [{ text: 'OK' }]
+        );
+        return { success: false, error: 'Web links not yet available' };
+      }
+      
+      return { success: false, error: 'Unknown export format' };
+    } catch (error) {
+      console.error('Export error:', error);
+      return { success: false, error: 'Failed to export portfolio' };
+    }
   };
 
   const getAchievementIcon = (icon?: string) => {

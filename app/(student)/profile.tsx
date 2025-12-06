@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal } from 'rea
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Camera, Mail, Phone, MapPin, BookOpen, LogOut, ChevronRight, Edit } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
 import { COLORS, GRADIENTS } from '@/constants/colors';
 import { useAuth } from '@/context/AuthContext';
 import { StudentProfileFormData } from '@/types';
@@ -12,6 +13,7 @@ import ConfirmationDialog from '@/components/ConfirmationDialog';
 import LoadingSpinner from '@/components/LoadingSpinner';
 
 export default function StudentProfile() {
+  const router = useRouter();
   const { user, logout, updateProfile, isLoading } = useAuth();
   
   const [showEditModal, setShowEditModal] = useState(false);
@@ -148,7 +150,10 @@ export default function StudentProfile() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Settings</Text>
           <View style={styles.menuList}>
-            <TouchableOpacity style={styles.menuItem}>
+            <TouchableOpacity 
+              style={styles.menuItem}
+              onPress={() => router.push('/(student)/analytics')}
+            >
               <BookOpen size={20} color={COLORS.textMuted} />
               <Text style={styles.menuText}>Academic Records</Text>
               <ChevronRight size={20} color={COLORS.textMuted} />
